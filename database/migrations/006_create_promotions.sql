@@ -1,0 +1,20 @@
+CREATE TABLE IF NOT EXISTS `promotions` (
+    `id`           INT UNSIGNED   NOT NULL AUTO_INCREMENT,
+    `bot_id`       INT UNSIGNED   NOT NULL,
+    `code`         VARCHAR(80)    NOT NULL,
+    `description`  VARCHAR(255)   NULL,
+    `type`         ENUM('percent','fixed') NOT NULL DEFAULT 'percent',
+    `value`        DECIMAL(15,2)  NOT NULL DEFAULT 0.00,
+    `min_order`    DECIMAL(15,2)  NOT NULL DEFAULT 0.00,
+    `max_uses`     INT            NULL COMMENT 'NULL = unlimited',
+    `used_count`   INT            NOT NULL DEFAULT 0,
+    `start_at`     DATETIME       NULL,
+    `end_at`       DATETIME       NULL,
+    `status`       ENUM('active','inactive') NOT NULL DEFAULT 'active',
+    `created_at`   DATETIME       NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `updated_at`   DATETIME       NULL ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uq_bot_code` (`bot_id`, `code`),
+    INDEX `idx_bot_id` (`bot_id`),
+    CONSTRAINT `fk_promotions_bot` FOREIGN KEY (`bot_id`) REFERENCES `bots` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

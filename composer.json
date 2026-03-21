@@ -1,0 +1,15 @@
+{
+    "require": {
+        "irazasyed/telegram-bot-sdk": "^3.15",
+        "vlucas/phpdotenv": "^5.6"
+    },
+    "autoload": {
+        "psr-4": {
+            "Core\\": "core/",
+            "App\\": "app/"
+        }
+    },
+    "config": {
+        "optimize-autoloader": true
+    }
+}

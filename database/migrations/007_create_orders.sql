@@ -1,0 +1,23 @@
+CREATE TABLE IF NOT EXISTS `orders` (
+    `id`              INT UNSIGNED   NOT NULL AUTO_INCREMENT,
+    `bot_id`          INT UNSIGNED   NOT NULL,
+    `telegram_user_id`INT UNSIGNED   NOT NULL,
+    `promo_id`        INT UNSIGNED   NULL,
+    `promo_code`      VARCHAR(80)    NULL,
+    `subtotal`        DECIMAL(15,2)  NOT NULL DEFAULT 0.00,
+    `discount_amount` DECIMAL(15,2)  NOT NULL DEFAULT 0.00,
+    `total_amount`    DECIMAL(15,2)  NOT NULL DEFAULT 0.00,
+    `status`          ENUM('pending','confirmed','processing','shipped','completed','cancelled') NOT NULL DEFAULT 'pending',
+    `note`            TEXT           NULL,
+    `shipping_info`   JSON           NULL,
+    `created_at`      DATETIME       NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `updated_at`      DATETIME       NULL ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    INDEX `idx_bot_id` (`bot_id`),
+    INDEX `idx_telegram_user_id` (`telegram_user_id`),
+    INDEX `idx_status` (`status`),
+    INDEX `idx_created_at` (`created_at`),
+    CONSTRAINT `fk_orders_bot`           FOREIGN KEY (`bot_id`)           REFERENCES `bots` (`id`) ON DELETE CASCADE,
+    CONSTRAINT `fk_orders_telegram_user` FOREIGN KEY (`telegram_user_id`) REFERENCES `telegram_users` (`id`),
+    CONSTRAINT `fk_orders_promo`         FOREIGN KEY (`promo_id`)         REFERENCES `promotions` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
