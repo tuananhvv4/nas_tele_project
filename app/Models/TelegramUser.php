@@ -50,10 +50,15 @@ class TelegramUser extends BaseModel
             ->paginate($perPage, $page);
     }
 
-    public static function findForBot(int $id, int $botId): ?array
+    public static function findForBot($id, $botId): ?array
     {
+        $id = (int) $id;
+        $botId = (int) $botId;
+
         return static::db()->table(static::$table)
-            ->where('id', $id)->where('bot_id', $botId)->first();
+            ->where('id', $id)
+            ->where('bot_id', $botId)
+            ->first();
     }
 
     public static function toggleBan(int $id): void

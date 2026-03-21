@@ -22,6 +22,22 @@ use App\Models\TelegramUser;
 use App\Models\BroadcastLog;
 use Telegram\Bot\Api;
 
+// ── Logger ────────────────────────────────────────────────────────────────────
+function wlog(string $level, string $message, array $context = []): void
+{
+    $logDir  = BASE_PATH . '/storage/logs';
+    $logFile = $logDir . '/webhook-' . date('Y-m-d') . '.log';
+    if (!is_dir($logDir)) mkdir($logDir, 0755, true);
+    $line = sprintf(
+        "[%s] [%s] %s%s\n",
+        date('Y-m-d H:i:s'),
+        strtoupper($level),
+        $message,
+        $context ? ' | ' . json_encode($context, JSON_UNESCAPED_UNICODE) : ''
+    );
+    file_put_contents($logFile, $line, FILE_APPEND | LOCK_EX);
+}
+
 // Bootstrap env + DB only (no session / router needed)
 $app = Application::getInstance(BASE_PATH);
 $app->bootstrapLite();
@@ -30,13 +46,22 @@ $app->bootstrapLite();
 $botId         = (int)($_GET['bot_id'] ?? 0);
 $webhookToken  = $_GET['token'] ?? '';
 
+wlog('info', 'Webhook hit', ['bot_id' => $botId, 'ip' => $_SERVER['REMOTE_ADDR'] ?? '']);
+
 if (!$botId) {
+    wlog('warn', 'Missing bot_id');
     http_response_code(400);
     exit('Missing bot_id');
 }
 
 $bot = Bot::find($botId);
-if (!$bot || ($bot['status'] ?? '') !== 'active') {
+if (!$bot) {
+    wlog('warn', 'Bot not found in DB', ['bot_id' => $botId]);
+    http_response_code(404);
+    exit('Bot not found');
+}
+if (($bot['status'] ?? '') !== 'active') {
+    wlog('warn', 'Bot not active', ['bot_id' => $botId, 'status' => $bot['status'] ?? 'null']);
     http_response_code(404);
     exit('Bot not found');
 }
@@ -52,7 +77,10 @@ if (!$bot || ($bot['status'] ?? '') !== 'active') {
 $input  = file_get_contents('php://input');
 $update = json_decode($input, true);
 
+wlog('info', 'Raw input', ['body' => mb_substr($input, 0, 500)]);
+
 if (!$update) {
+    wlog('warn', 'Empty or invalid JSON body');
     http_response_code(200); // Always return 200 to Telegram
     exit;
 }
@@ -74,10 +102,16 @@ try {
     $telegram = new Api($bot['bot_token']);
     $message  = $update['message'] ?? $update['callback_query']['message'] ?? null;
 
-    if (!$message) exit;
+    if (!$message) {
+        wlog('info', 'Update has no message', ['update_keys' => array_keys($update)]);
+        exit;
+    }
 
     $from = $message['from'] ?? ($update['callback_query']['from'] ?? null);
-    if (!$from) exit;
+    if (!$from) {
+        wlog('warn', 'Message has no from field');
+        exit;
+    }
 
     // Register or update user
     $tgUser = TelegramUser::findOrCreate($botId, [
@@ -88,10 +122,15 @@ try {
         'language'    => $from['language_code'] ?? null,
     ]);
 
-    if ($tgUser['is_banned']) exit;
+    if ($tgUser['is_banned']) {
+        wlog('info', 'Banned user ignored', ['telegram_id' => $from['id']]);
+        exit;
+    }
 
     $chatId = $message['chat']['id'];
     $text   = trim($message['text'] ?? '');
+
+    wlog('info', 'Processing message', ['chat_id' => $chatId, 'text' => $text]);
 
     // Route commands
     match (true) {
@@ -103,6 +142,7 @@ try {
     };
 
 } catch (\Throwable $e) {
+    wlog('error', $e->getMessage(), ['file' => $e->getFile() . ':' . $e->getLine(), 'trace' => mb_substr($e->getTraceAsString(), 0, 800)]);
     error_log('[Webhook Error] ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());
 }
 
