@@ -8,8 +8,9 @@ class Bot extends BaseModel
 {
     protected static string $table = 'bots';
 
-    public static function forAdmin(int $adminUserId): array
+    public static function forAdmin($adminUserId): array
     {
+        $adminUserId = (int) $adminUserId;
         return static::db()
             ->table(static::$table)
             ->where('admin_user_id', $adminUserId)
@@ -17,8 +18,10 @@ class Bot extends BaseModel
             ->get();
     }
 
-    public static function findForAdmin(int $botId, int $adminUserId): ?array
+    public static function findForAdmin($botId, $adminUserId): ?array
     {
+        $botId       = (int) $botId;
+        $adminUserId = (int) $adminUserId;
         return static::db()
             ->table(static::$table)
             ->where('id', $botId)
@@ -26,16 +29,20 @@ class Bot extends BaseModel
             ->first();
     }
 
-    public static function countForAdmin(int $adminUserId): int
+    public static function countForAdmin($adminUserId): int
     {
+        $adminUserId = (int) $adminUserId;
         return static::db()
             ->table(static::$table)
             ->where('admin_user_id', $adminUserId)
             ->count();
     }
 
-    public static function paginateForAdmin(int $adminUserId, int $perPage, int $page): array
+    public static function paginateForAdmin($adminUserId, $perPage, $page): array
     {
+        $adminUserId = (int) $adminUserId;
+        $perPage     = (int) $perPage;
+        $page        = (int) $page;
         return static::db()
             ->table(static::$table)
             ->where('admin_user_id', $adminUserId)

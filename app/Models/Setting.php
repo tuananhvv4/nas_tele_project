@@ -8,16 +8,18 @@ class Setting extends BaseModel
 {
     protected static string $table = 'settings';
 
-    public static function forBot(int $botId): array
+    public static function forBot($botId): array
     {
+        $botId = (int) $botId;
         $rows = static::db()->table('settings')->where('bot_id', $botId)->get();
         $map  = [];
         foreach ($rows as $row) $map[$row['key']] = $row;
         return $map;
     }
 
-    public static function get(int $botId, string $key, mixed $default = null): mixed
+    public static function get($botId, string $key, mixed $default = null): mixed
     {
+        $botId = (int) $botId;
         $row = static::db()->table('settings')
             ->where('bot_id', $botId)->where('key', $key)->first();
         if (!$row) return $default;
@@ -29,8 +31,9 @@ class Setting extends BaseModel
         };
     }
 
-    public static function set(int $botId, string $key, mixed $value, string $type = 'string', string $label = ''): void
+    public static function set($botId, string $key, mixed $value, string $type = 'string', string $label = ''): void
     {
+        $botId = (int) $botId;
         $strValue = is_array($value) ? json_encode($value) : (string) $value;
         $existing = static::db()->table('settings')
             ->where('bot_id', $botId)->where('key', $key)->first();
@@ -51,8 +54,9 @@ class Setting extends BaseModel
         }
     }
 
-    public static function bulkSet(int $botId, array $data): void
+    public static function bulkSet($botId, array $data): void
     {
+        $botId = (int) $botId;
         foreach ($data as $key => $value) {
             static::set($botId, $key, $value);
         }

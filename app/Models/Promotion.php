@@ -8,22 +8,28 @@ class Promotion extends BaseModel
 {
     protected static string $table = 'promotions';
 
-    public static function paginateForBot(int $botId, int $perPage, int $page): array
+    public static function paginateForBot($botId, $perPage, $page): array
     {
+        $botId  = (int) $botId;
+        $perPage = (int) $perPage;
+        $page   = (int) $page;
         return static::db()->table('promotions')
             ->where('bot_id', $botId)
             ->orderBy('id', 'DESC')
             ->paginate($perPage, $page);
     }
 
-    public static function findForBot(int $id, int $botId): ?array
+    public static function findForBot($id, $botId): ?array
     {
+        $id    = (int) $id;
+        $botId = (int) $botId;
         return static::db()->table('promotions')
             ->where('id', $id)->where('bot_id', $botId)->first();
     }
 
-    public static function findByCode(int $botId, string $code): ?array
+    public static function findByCode($botId, string $code): ?array
     {
+        $botId = (int) $botId;
         return static::db()->table('promotions')
             ->where('bot_id', $botId)->where('code', strtoupper($code))->first();
     }
@@ -38,8 +44,9 @@ class Promotion extends BaseModel
         return true;
     }
 
-    public static function incrementUsed(int $id): void
+    public static function incrementUsed($id): void
     {
+        $id = (int) $id;
         static::db()->query(
             "UPDATE promotions SET used_count = used_count + 1 WHERE id = :id",
             ['id' => $id]

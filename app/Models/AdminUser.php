@@ -30,8 +30,9 @@ class AdminUser extends BaseModel
 
     // ── Permissions ───────────────────────────────────────────────────────────
 
-    public static function getPermissions(int $adminId): array
+    public static function getPermissions($adminId): array
     {
+        $adminId = (int) $adminId;
         $user = static::find($adminId);
         if (!$user) return [];
 
@@ -43,8 +44,9 @@ class AdminUser extends BaseModel
         return json_decode($perms, true) ?? [];
     }
 
-    public static function can(int $adminId, string $feature): bool
+    public static function can($adminId, string $feature): bool
     {
+        $adminId = (int) $adminId;
         $user = static::find($adminId);
         if (!$user) return false;
         if ($user['role'] === self::ROLE_SUPER_ADMIN) return true;
@@ -53,8 +55,9 @@ class AdminUser extends BaseModel
         return (bool)($perms[$feature] ?? false);
     }
 
-    public static function updatePermissions(int $adminId, array $permissions): int
+    public static function updatePermissions($adminId, array $permissions): int
     {
+        $adminId = (int) $adminId;
         return static::update($adminId, [
             'feature_permissions' => json_encode($permissions),
         ]);

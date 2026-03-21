@@ -17,8 +17,11 @@ class Order extends BaseModel
         'cancelled'  => 'Đã huỷ',
     ];
 
-    public static function paginateForBot(int $botId, int $perPage, int $page, array $filters = []): array
+    public static function paginateForBot($botId, $perPage, $page, array $filters = []): array
     {
+        $botId  = (int) $botId;
+        $perPage = (int) $perPage;
+        $page   = (int) $page;
         $q = static::db()
             ->table('orders o')
             ->select('o.*, tu.first_name, tu.username')
@@ -30,8 +33,10 @@ class Order extends BaseModel
         return $q->orderBy('o.id', 'DESC')->paginate($perPage, $page);
     }
 
-    public static function findWithItemsForBot(int $id, int $botId): ?array
+    public static function findWithItemsForBot($id, $botId): ?array
     {
+        $id    = (int) $id;
+        $botId = (int) $botId;
         $order = static::db()->table('orders o')
             ->select('o.*, tu.first_name, tu.last_name, tu.username, tu.telegram_id')
             ->join('telegram_users tu', 'tu.id', '=', 'o.telegram_user_id')
@@ -50,8 +55,9 @@ class Order extends BaseModel
         return $order;
     }
 
-    public static function statsForBot(int $botId): array
+    public static function statsForBot($botId): array
     {
+        $botId = (int) $botId;
         $db = static::db();
         $today = date('Y-m-d');
 

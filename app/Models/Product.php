@@ -8,8 +8,9 @@ class Product extends BaseModel
 {
     protected static string $table = 'products';
 
-    public static function forBot(int $botId, array $filters = []): array
+    public static function forBot($botId, array $filters = []): array
     {
+        $botId = (int) $botId;
         $q = static::db()->table(static::$table)->where('bot_id', $botId);
         if (!empty($filters['category_id'])) $q = $q->where('category_id', $filters['category_id']);
         if (!empty($filters['status']))      $q = $q->where('status', $filters['status']);
@@ -32,8 +33,11 @@ class Product extends BaseModel
         return $slug ?: 'product';
     }
 
-    public static function paginateForBot(int $botId, int $perPage, int $page, array $filters = []): array
+    public static function paginateForBot($botId, $perPage, $page, array $filters = []): array
     {
+        $botId  = (int) $botId;
+        $perPage = (int) $perPage;
+        $page   = (int) $page;
         $q = static::db()->table(static::$table)->where('bot_id', $botId);
         if (!empty($filters['category_id'])) $q = $q->where('category_id', $filters['category_id']);
         if (!empty($filters['status']))      $q = $q->where('status', $filters['status']);

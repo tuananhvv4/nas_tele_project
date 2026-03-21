@@ -8,8 +8,9 @@ class OrderItem extends BaseModel
 {
     protected static string $table = 'order_items';
 
-    public static function forOrder(int $orderId): array
+    public static function forOrder($orderId): array
     {
+        $orderId = (int) $orderId;
         return static::db()->table('order_items oi')
             ->select('oi.*, p.name as product_current_name, p.price as product_current_price')
             ->join('products p', 'p.id', '=', 'oi.product_id', 'LEFT')

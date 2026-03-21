@@ -8,8 +8,9 @@ class TelegramUser extends BaseModel
 {
     protected static string $table = 'telegram_users';
 
-    public static function findOrCreate(int $botId, array $data): array
+    public static function findOrCreate($botId, array $data): array
     {
+        $botId = (int) $botId;
         $db = static::db();
         $existing = $db->table(static::$table)
             ->where('bot_id', $botId)
@@ -42,8 +43,11 @@ class TelegramUser extends BaseModel
         return array_merge(['id' => $id], $data);
     }
 
-    public static function paginateForBot(int $botId, int $perPage, int $page): array
+    public static function paginateForBot($botId, $perPage, $page): array
     {
+        $botId  = (int) $botId;
+        $perPage = (int) $perPage;
+        $page   = (int) $page;
         return static::db()->table(static::$table)
             ->where('bot_id', $botId)
             ->orderBy('created_at', 'DESC')
@@ -61,8 +65,9 @@ class TelegramUser extends BaseModel
             ->first();
     }
 
-    public static function toggleBan(int $id): void
+    public static function toggleBan($id): void
     {
+        $id   = (int) $id;
         $user = static::find($id);
         if ($user) {
             static::update($id, ['is_banned' => $user['is_banned'] ? 0 : 1]);

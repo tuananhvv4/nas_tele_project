@@ -8,8 +8,11 @@ class ProductAccount extends BaseModel
 {
     protected static string $table = 'product_accounts';
 
-    public static function forProduct(int $productId, int $perPage = 50, int $page = 1): array
+    public static function forProduct($productId, $perPage = 50, $page = 1): array
     {
+        $productId = (int) $productId;
+        $perPage   = (int) $perPage;
+        $page      = (int) $page;
         return static::db()
             ->table(static::$table)
             ->where('product_id', $productId)
@@ -17,8 +20,9 @@ class ProductAccount extends BaseModel
             ->paginate($perPage, $page);
     }
 
-    public static function countByStatus(int $productId): array
+    public static function countByStatus($productId): array
     {
+        $productId = (int) $productId;
         $rows = static::db()->query(
             'SELECT status, COUNT(*) as cnt FROM product_accounts WHERE product_id = ? GROUP BY status',
             [$productId]
@@ -30,8 +34,9 @@ class ProductAccount extends BaseModel
         return $result;
     }
 
-    public static function bulkCreate(int $productId, array $lines): int
+    public static function bulkCreate($productId, array $lines): int
     {
+        $productId = (int) $productId;
         $count = 0;
         $now   = date('Y-m-d H:i:s');
         foreach ($lines as $line) {
@@ -48,8 +53,9 @@ class ProductAccount extends BaseModel
         return $count;
     }
 
-    public static function deleteAvailable(int $productId): int
+    public static function deleteAvailable($productId): int
     {
+        $productId = (int) $productId;
         return static::db()
             ->table(static::$table)
             ->where('product_id', $productId)
