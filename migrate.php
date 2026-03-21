@@ -94,6 +94,7 @@ $migrations = [
             `parent_id`  INT UNSIGNED NULL,
             `name`       VARCHAR(150) NOT NULL,
             `slug`       VARCHAR(180) NOT NULL,
+            `description` TEXT        NULL,
             `sort_order` SMALLINT UNSIGNED NOT NULL DEFAULT 0,
             `status`     ENUM('active','inactive') NOT NULL DEFAULT 'active',
             `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -115,6 +116,8 @@ $migrations = [
             `name`        VARCHAR(255)   NOT NULL,
             `slug`        VARCHAR(280)   NOT NULL,
             `description` TEXT           NULL,
+            `sku`         VARCHAR(100)   NULL,
+            `image_url`   VARCHAR(500)   NULL,
             `price`       DECIMAL(15,2)  NOT NULL DEFAULT 0.00,
             `sale_price`  DECIMAL(15,2)  NULL,
             `stock`       INT            NOT NULL DEFAULT -1 COMMENT '-1 = unlimited',
@@ -265,6 +268,24 @@ $migrations = [
             PRIMARY KEY (`id`),
             INDEX `idx_bot_id` (`bot_id`),
             CONSTRAINT `fk_api_sources_bot` FOREIGN KEY (`bot_id`) REFERENCES `bots` (`id`) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    ",
+
+    '012 product_accounts' => "
+        CREATE TABLE IF NOT EXISTS `product_accounts` (
+            `id`         INT UNSIGNED NOT NULL AUTO_INCREMENT,
+            `product_id` INT UNSIGNED NOT NULL,
+            `value`      TEXT NOT NULL COMMENT 'Account data, e.g. username:password',
+            `note`       VARCHAR(255) NULL,
+            `status`     ENUM('available','used') NOT NULL DEFAULT 'available',
+            `used_at`    DATETIME NULL,
+            `order_id`   INT UNSIGNED NULL,
+            `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (`id`),
+            INDEX `idx_product_id` (`product_id`),
+            INDEX `idx_status` (`status`),
+            CONSTRAINT `fk_product_accounts_product`
+                FOREIGN KEY (`product_id`) REFERENCES `products` (`id`) ON DELETE CASCADE
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     ",
 ];
