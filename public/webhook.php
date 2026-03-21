@@ -150,16 +150,42 @@ try {
 
 function handleStart(Api $tg, $chatId, $botId, array $user): void
 {
-    $chatId  = (int) $chatId;
-    $botId   = (int) $botId;
-    $welcome  = \App\Models\Setting::get($botId, 'welcome_message', 'Chào mừng bạn đến cửa hàng của chúng tôi! 🛍️');
-    $shopName = \App\Models\Setting::get($botId, 'shop_name', 'Cửa hàng');
+    $chatId = (int) $chatId;
+    $botId  = (int) $botId;
 
-    $tg->sendMessage([
-        'chat_id'    => $chatId,
-        'text'       => '<b>' . htmlspecialchars($shopName, ENT_QUOTES) . "</b>\n\n" . htmlspecialchars($welcome, ENT_QUOTES) . "\n\nDùng /catalog để xem sản phẩm.",
-        'parse_mode' => 'HTML',
-    ]);
+    wlog('info', 'handleStart called', ['chat_id' => $chatId, 'bot_id' => $botId]);
+
+    try {
+        $welcome  = \App\Models\Setting::get($botId, 'welcome_message', 'Chào mừng bạn đến cửa hàng của chúng tôi! 🛍️');
+        $shopName = \App\Models\Setting::get($botId, 'shop_name', 'Cửa hàng');
+
+        wlog('info', 'handleStart settings loaded', ['shop' => $shopName, 'welcome_len' => mb_strlen((string)$welcome)]);
+
+        $text = '<b>' . htmlspecialchars((string)$shopName, ENT_QUOTES | ENT_HTML5, 'UTF-8') . "</b>\n\n"
+              . htmlspecialchars((string)$welcome, ENT_QUOTES | ENT_HTML5, 'UTF-8')
+              . "\n\nDùng /catalog để xem sản phẩm.";
+
+        $tg->sendMessage([
+            'chat_id'    => $chatId,
+            'text'       => $text,
+            'parse_mode' => 'HTML',
+        ]);
+
+        wlog('info', 'handleStart sendMessage OK');
+
+    } catch (\Throwable $e) {
+        wlog('error', 'handleStart failed: ' . $e->getMessage(), [
+            'file'  => $e->getFile() . ':' . $e->getLine(),
+            'trace' => mb_substr($e->getTraceAsString(), 0, 600),
+        ]);
+        // Fallback: send plain text without DB dependency
+        try {
+            $tg->sendMessage([
+                'chat_id' => $chatId,
+                'text'    => "Chào mừng bạn! 🛍️\n\nDùng /catalog để xem sản phẩm.",
+            ]);
+        } catch (\Throwable) {}
+    }
 }
 
 function handleCatalog(Api $tg, $chatId, $botId): void
