@@ -1,5 +1,26 @@
 {
-  "dependencies": {
-    "tailwindcss": "^4.2.2"
-  }
+  "name": "bot_tele_v1",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "devDependencies": {
+    "autoprefixer": "^10.4.27",
+    "postcss": "^8.5.8",
+    "tailwindcss": "^3.4.19"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "tailwindcss -i ./resources/css/app.css -o ./public/css/app.css --watch"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tuananhvv4/nas_tele_project.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/tuananhvv4/nas_tele_project/issues"
+  },
+  "homepage": "https://github.com/tuananhvv4/nas_tele_project#readme"
 }

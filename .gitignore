@@ -1,6 +1,7 @@
-
+/node_modules
 /vendor
 .env
 /document
 *.log
 bin/
+node_modules
