@@ -73,7 +73,11 @@ class Database
     public function where(string $column, mixed $value, string $operator = '='): self
     {
         $placeholder = 'w_' . count($this->binds);
-        $this->wheres[] = "{$column} {$operator} :{$placeholder}";
+        // Wrap bare column names (no dot/space) in backticks to avoid reserved word conflicts
+        $col = str_contains($column, '.') || str_contains($column, '`') || str_contains($column, '(') || str_contains($column, ' ')
+            ? $column
+            : "`{$column}`";
+        $this->wheres[] = "{$col} {$operator} :{$placeholder}";
         $this->binds[$placeholder] = $value;
         return $this;
     }
@@ -184,7 +188,7 @@ class Database
 
     public function insert(array $data): int
     {
-        $columns      = implode(', ', array_keys($data));
+        $columns      = implode(', ', array_map(fn($k) => "`{$k}`", array_keys($data)));
         $placeholders = ':' . implode(', :', array_keys($data));
         $sql          = "INSERT INTO {$this->table} ({$columns}) VALUES ({$placeholders})";
         $this->query($sql, $data);
@@ -193,7 +197,7 @@ class Database
 
     public function update(array $data): int
     {
-        $sets = implode(', ', array_map(fn($k) => "{$k} = :set_{$k}", array_keys($data)));
+        $sets = implode(', ', array_map(fn($k) => "`{$k}` = :set_{$k}", array_keys($data)));
         $sql  = "UPDATE {$this->table} SET {$sets}";
         $sql .= $this->buildWhere();
 

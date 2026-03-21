@@ -127,18 +127,49 @@ try {
         exit;
     }
 
+    // Handle inline button taps (callback_query)
+    if (isset($update['callback_query'])) {
+        $cq       = $update['callback_query'];
+        $cbChatId = (int) ($cq['message']['chat']['id'] ?? 0);
+        $cbData   = $cq['data'] ?? '';
+        try { $telegram->answerCallbackQuery(['callback_query_id' => $cq['id']]); } catch (\Throwable) {}
+
+        wlog('info', 'Callback query', ['data' => $cbData, 'chat_id' => $cbChatId]);
+
+        if (str_starts_with($cbData, 'cat_')) {
+            handleCategoryProducts($telegram, $cbChatId, $botId, (int) substr($cbData, 4));
+        } elseif (str_starts_with($cbData, 'prod_')) {
+            handleProductDetail($telegram, $cbChatId, $botId, (int) substr($cbData, 5));
+        } elseif (str_starts_with($cbData, 'buy_')) {
+            $tg2 = $telegram;
+            try { $tg2->sendMessage(['chat_id' => $cbChatId, 'text' => '🛒 Tính năng mua hàng sẽ sớm ra mắt!']); } catch (\Throwable) {}
+        } elseif ($cbData === 'menu_catalog') {
+            handleCatalog($telegram, $cbChatId, $botId);
+        } elseif ($cbData === 'menu_orders') {
+            handleOrders($telegram, $cbChatId, $botId, $tgUser);
+        } elseif ($cbData === 'menu_help') {
+            handleHelp($telegram, $cbChatId, $botId);
+        }
+        exit;
+    }
+
     $chatId = $message['chat']['id'];
     $text   = trim($message['text'] ?? '');
 
     wlog('info', 'Processing message', ['chat_id' => $chatId, 'text' => $text]);
 
-    // Route commands
+    // Route commands and persistent keyboard buttons
     match (true) {
-        str_starts_with($text, '/start')   => handleStart($telegram, $chatId, $botId, $tgUser),
-        str_starts_with($text, '/catalog') => handleCatalog($telegram, $chatId, $botId),
-        str_starts_with($text, '/order')   => handleOrders($telegram, $chatId, $botId, $tgUser),
-        str_starts_with($text, '/help')    => handleHelp($telegram, $chatId, $botId),
-        default                            => handleDefault($telegram, $chatId, $botId, $text, $tgUser),
+        str_starts_with($text, '/start')        => handleStart($telegram, $chatId, $botId, $tgUser),
+        str_starts_with($text, '/catalog')      => handleCatalog($telegram, $chatId, $botId),
+        str_starts_with($text, '/order')        => handleOrders($telegram, $chatId, $botId, $tgUser),
+        str_starts_with($text, '/help')         => handleHelp($telegram, $chatId, $botId),
+        $text === '📋 Xem sản phẩm'            => handleCatalog($telegram, $chatId, $botId),
+        $text === '📦 Đơn hàng của tôi'        => handleOrders($telegram, $chatId, $botId, $tgUser),
+        $text === '🔄 Làm mới / check slot'    => handleCatalog($telegram, $chatId, $botId),
+        $text === '🔍 Tra cứu'                 => handleSearch($telegram, $chatId, $botId),
+        $text === '❓ Hướng dẫn'               => handleHelp($telegram, $chatId, $botId),
+        default                                 => handleDefault($telegram, $chatId, $botId, $text, $tgUser),
     };
 
 } catch (\Throwable $e) {
@@ -147,6 +178,19 @@ try {
 }
 
 // ── Command handlers ──────────────────────────────────────────────────────────
+
+function mainKeyboard(): array
+{
+    return [
+        'keyboard' => [
+            [['text' => '📋 Xem sản phẩm'],     ['text' => '📦 Đơn hàng của tôi']],
+            [['text' => '🔄 Làm mới / check slot'], ['text' => '🔍 Tra cứu']],
+            [['text' => '❓ Hướng dẫn']],
+        ],
+        'resize_keyboard'   => true,
+        'persistent'        => true,
+    ];
+}
 
 function handleStart(Api $tg, $chatId, $botId, array $user): void
 {
@@ -163,12 +207,13 @@ function handleStart(Api $tg, $chatId, $botId, array $user): void
 
         $text = '<b>' . htmlspecialchars((string)$shopName, ENT_QUOTES | ENT_HTML5, 'UTF-8') . "</b>\n\n"
               . htmlspecialchars((string)$welcome, ENT_QUOTES | ENT_HTML5, 'UTF-8')
-              . "\n\nDùng /catalog để xem sản phẩm.";
+              . "\n\nChọn chức năng bên dưới 👇";
 
         $tg->sendMessage([
-            'chat_id'    => $chatId,
-            'text'       => $text,
-            'parse_mode' => 'HTML',
+            'chat_id'      => $chatId,
+            'text'         => $text,
+            'parse_mode'   => 'HTML',
+            'reply_markup' => json_encode(mainKeyboard()),
         ]);
 
         wlog('info', 'handleStart sendMessage OK');
@@ -178,11 +223,11 @@ function handleStart(Api $tg, $chatId, $botId, array $user): void
             'file'  => $e->getFile() . ':' . $e->getLine(),
             'trace' => mb_substr($e->getTraceAsString(), 0, 600),
         ]);
-        // Fallback: send plain text without DB dependency
         try {
             $tg->sendMessage([
-                'chat_id' => $chatId,
-                'text'    => "Chào mừng bạn! 🛍️\n\nDùng /catalog để xem sản phẩm.",
+                'chat_id'      => $chatId,
+                'text'         => "Chào mừng bạn! 🛍️\n\nChọn chức năng bên dưới 👇",
+                'reply_markup' => json_encode(mainKeyboard()),
             ]);
         } catch (\Throwable) {}
     }
@@ -199,17 +244,96 @@ function handleCatalog(Api $tg, $chatId, $botId): void
         return;
     }
 
-    $keyboard = array_map(fn($cat) => [['text' => $cat['name']]], $categories);
+    $keyboard = array_map(
+        fn($cat) => [['text' => $cat['name'], 'callback_data' => 'cat_' . $cat['id']]],
+        $categories
+    );
 
     $tg->sendMessage([
         'chat_id'      => $chatId,
         'text'         => "📋 *Danh mục sản phẩm*\n\nVui lòng chọn danh mục:",
         'parse_mode'   => 'Markdown',
-        'reply_markup' => json_encode([
-            'keyboard'          => $keyboard,
-            'resize_keyboard'   => true,
-            'one_time_keyboard' => true,
-        ]),
+        'reply_markup' => json_encode(['inline_keyboard' => $keyboard]),
+    ]);
+}
+
+function handleCategoryProducts(Api $tg, $chatId, $botId, int $catId): void
+{
+    $chatId = (int) $chatId;
+    $botId  = (int) $botId;
+
+    $products = \App\Models\Product::forBot($botId, ['category_id' => $catId, 'status' => 'active']);
+
+    $backBtn = [['text' => '⬅️ Quay lại danh mục', 'callback_data' => 'menu_catalog']];
+
+    if (empty($products)) {
+        $tg->sendMessage([
+            'chat_id'      => $chatId,
+            'text'         => 'Danh mục này chưa có sản phẩm nào.',
+            'reply_markup' => json_encode(['inline_keyboard' => [$backBtn]]),
+        ]);
+        return;
+    }
+
+    $keyboard = [];
+    foreach ($products as $p) {
+        $stock = \App\Models\ProductAccount::countByStatus((int)$p['id'])['available'] ?? 0;
+        $price = number_format((int)$p['price'], 0, '.', ',');
+        $label = "{$p['name']} {$price}đ ({$stock})";
+        $keyboard[] = [['text' => $label, 'callback_data' => 'prod_' . $p['id']]];
+    }
+    $keyboard[] = $backBtn;
+
+    $tg->sendMessage([
+        'chat_id'      => $chatId,
+        'text'         => "🛍️ *Chọn sản phẩm bạn muốn mua:*\n\n💡 _Bấm \"Làm mới / check slot\" để cập nhật số lượng mới nhất_",
+        'parse_mode'   => 'Markdown',
+        'reply_markup' => json_encode(['inline_keyboard' => $keyboard]),
+    ]);
+}
+
+function handleProductDetail(Api $tg, $chatId, $botId, int $prodId): void
+{
+    $chatId = (int) $chatId;
+    $botId  = (int) $botId;
+
+    $product = \App\Models\Product::findForBot($prodId, $botId);
+    if (!$product) {
+        $tg->sendMessage(['chat_id' => $chatId, 'text' => 'Sản phẩm không tồn tại.']);
+        return;
+    }
+
+    $stock = \App\Models\ProductAccount::countByStatus($prodId)['available'] ?? 0;
+    $price = number_format((int)$product['price'], 0, '.', ',');
+
+    $text = '<b>' . htmlspecialchars((string)$product['name'], ENT_QUOTES | ENT_HTML5, 'UTF-8') . "</b>\n\n"
+          . "💰 Giá: <b>{$price}đ</b>\n"
+          . "📦 Còn lại: <b>{$stock} slot</b>";
+    if (!empty($product['description'])) {
+        $text .= "\n\n" . htmlspecialchars((string)$product['description'], ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    }
+
+    $catId = (int)($product['category_id'] ?? 0);
+    $keyboard = [];
+    $keyboard[] = $stock > 0
+        ? [['text' => '💳 Mua ngay', 'callback_data' => 'buy_' . $prodId]]
+        : [['text' => '❌ Hết hàng', 'callback_data' => 'noop']];
+    $keyboard[] = [['text' => '⬅️ Quay lại', 'callback_data' => 'cat_' . $catId]];
+
+    $tg->sendMessage([
+        'chat_id'      => $chatId,
+        'text'         => $text,
+        'parse_mode'   => 'HTML',
+        'reply_markup' => json_encode(['inline_keyboard' => $keyboard]),
+    ]);
+}
+
+function handleSearch(Api $tg, $chatId, $botId): void
+{
+    $chatId = (int) $chatId;
+    $tg->sendMessage([
+        'chat_id' => $chatId,
+        'text'    => '🔍 Tính năng tra cứu sẽ sớm ra mắt!',
     ]);
 }
 
