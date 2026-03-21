@@ -148,9 +148,11 @@ try {
 
 // ── Command handlers ──────────────────────────────────────────────────────────
 
-function handleStart(Api $tg, int $chatId, int $botId, array $user): void
+function handleStart(Api $tg, $chatId, $botId, array $user): void
 {
-    $welcome = \App\Models\Setting::get($botId, 'welcome_message', 'Chào mừng bạn đến cửa hàng của chúng tôi! 🛍️');
+    $chatId  = (int) $chatId;
+    $botId   = (int) $botId;
+    $welcome  = \App\Models\Setting::get($botId, 'welcome_message', 'Chào mừng bạn đến cửa hàng của chúng tôi! 🛍️');
     $shopName = \App\Models\Setting::get($botId, 'shop_name', 'Cửa hàng');
 
     $tg->sendMessage([
@@ -160,12 +162,14 @@ function handleStart(Api $tg, int $chatId, int $botId, array $user): void
     ]);
 }
 
-function handleCatalog(Api $tg, int $chatId, int $botId): void
+function handleCatalog(Api $tg, $chatId, $botId): void
 {
+    $chatId = (int) $chatId;
+    $botId  = (int) $botId;
     $categories = \App\Models\Category::forBot($botId, onlyActive: true);
 
     if (empty($categories)) {
-        $tg->sendMessage(['chat_id' => $chatId, 'text' => 'Chưa có sản phẩm nào.']);
+        $tg->sendMessage(['chat_id' => $chatId, 'text' => 'Chưa có danh mục nào.']);
         return;
     }
 
@@ -173,7 +177,7 @@ function handleCatalog(Api $tg, int $chatId, int $botId): void
 
     $tg->sendMessage([
         'chat_id'      => $chatId,
-        'text'         => '📋 *Danh mục sản phẩm*\n\nVui lòng chọn danh mục:',
+        'text'         => "📋 *Danh mục sản phẩm*\n\nVui lòng chọn danh mục:",
         'parse_mode'   => 'Markdown',
         'reply_markup' => json_encode([
             'keyboard'          => $keyboard,
@@ -183,16 +187,20 @@ function handleCatalog(Api $tg, int $chatId, int $botId): void
     ]);
 }
 
-function handleOrders(Api $tg, int $chatId, int $botId, array $user): void
+function handleOrders(Api $tg, $chatId, $botId, array $user): void
 {
+    $chatId = (int) $chatId;
+    $botId  = (int) $botId;
     $tg->sendMessage([
         'chat_id' => $chatId,
         'text'    => '📦 Tính năng xem đơn hàng sẽ sớm ra mắt!',
     ]);
 }
 
-function handleHelp(Api $tg, int $chatId, int $botId): void
+function handleHelp(Api $tg, $chatId, $botId): void
 {
+    $chatId  = (int) $chatId;
+    $botId   = (int) $botId;
     $support = \App\Models\Setting::get($botId, 'support_contact', '');
     $text    = "ℹ️ *Hướng dẫn sử dụng*\n\n/start - Trang chủ\n/catalog - Xem sản phẩm\n/order - Xem đơn hàng\n/help - Trợ giúp";
     if ($support) $text .= "\n\n📞 Hỗ trợ: {$support}";
@@ -200,8 +208,10 @@ function handleHelp(Api $tg, int $chatId, int $botId): void
     $tg->sendMessage(['chat_id' => $chatId, 'text' => $text, 'parse_mode' => 'Markdown']);
 }
 
-function handleDefault(Api $tg, int $chatId, int $botId, string $text, array $user): void
+function handleDefault(Api $tg, $chatId, $botId, string $text, array $user): void
 {
+    $chatId = (int) $chatId;
+    $botId  = (int) $botId;
     // Could handle inline product search, order flow, etc.
     $tg->sendMessage([
         'chat_id' => $chatId,
