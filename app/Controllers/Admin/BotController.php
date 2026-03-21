@@ -7,6 +7,7 @@ namespace App\Controllers\Admin;
 use App\Controllers\BaseController;
 use App\Models\Bot;
 use Core\Request;
+use Telegram\Bot\Api as TelegramApi;
 
 class BotController extends BaseController
 {
@@ -84,7 +85,24 @@ class BotController extends BaseController
         $bot  = Bot::findForAdmin($id, $user['id']);
         if (!$bot) $this->abort(404);
 
-        // TODO: implement via TelegramService
-        $this->backWithSuccess('Webhook đã được cập nhật.');
+        $baseUrl    = rtrim($_ENV['APP_URL'] ?? '', '/');
+        $webhookUrl = $baseUrl . '/webhook.php?bot_id=' . $id;
+
+        try {
+            $telegram = new TelegramApi($bot['bot_token']);
+            $result   = $telegram->setWebhook(['url' => $webhookUrl]);
+
+            if ($result) {
+                Bot::update($id, [
+                    'webhook_url'    => $webhookUrl,
+                    'webhook_status' => 'active',
+                ]);
+                $this->backWithSuccess('Webhook đã được đăng ký thành công!');
+            } else {
+                $this->backWithError('Telegram không xác nhận webhook. Vui lòng thử lại.');
+            }
+        } catch (\Throwable $e) {
+            $this->backWithError('Lỗi đăng ký webhook: ' . $e->getMessage());
+        }
     }
 }

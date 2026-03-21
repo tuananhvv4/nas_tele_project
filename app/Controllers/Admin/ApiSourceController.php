@@ -15,7 +15,7 @@ class ApiSourceController extends BaseController
     {
         $user    = $this->authUser();
         $bots    = Bot::forAdmin($user['id']);
-        $botId   = $request->int('bot_id') ?: ($bots[0]['id'] ?? 0);
+        $botId   = $request->int('bot_id') ?: (int)($bots[0]['id'] ?? 0);
         $page    = $this->currentPage();
         $sources = $botId ? ApiSource::paginateForBot($botId, 20, $page) : ['data' => [], 'total' => 0, 'pages' => 0];
 
@@ -31,7 +31,7 @@ class ApiSourceController extends BaseController
     {
         $user  = $this->authUser();
         $bots  = Bot::forAdmin($user['id']);
-        $botId = $request->int('bot_id') ?: ($bots[0]['id'] ?? 0);
+        $botId = $request->int('bot_id') ?: (int)($bots[0]['id'] ?? 0);
 
         $this->render('admin/api-sources/create', [
             'title' => 'Thêm nguồn API',

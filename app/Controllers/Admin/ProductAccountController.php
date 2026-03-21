@@ -18,7 +18,7 @@ class ProductAccountController extends BaseController
         $user = $this->authUser();
         $bots = Bot::forAdmin($user['id']);
         foreach ($bots as $bot) {
-            $product = Product::findForBot($productId, $bot['id']);
+            $product = Product::findForBot($productId, (int)$bot['id']);
             if ($product) return $product;
         }
         $this->abort(404);

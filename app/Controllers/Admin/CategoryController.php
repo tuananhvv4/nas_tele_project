@@ -22,7 +22,7 @@ class CategoryController extends BaseController
     {
         $user  = $this->authUser();
         $bots  = Bot::forAdmin($user['id']);
-        $botId = $request->int('bot_id') ?: ($bots[0]['id'] ?? 0);
+        $botId = $request->int('bot_id') ?: (int)($bots[0]['id'] ?? 0);
         $categories = $botId ? Category::forBot($botId) : [];
 
         $this->render('admin/categories/index', [
@@ -37,7 +37,7 @@ class CategoryController extends BaseController
     {
         $user  = $this->authUser();
         $bots  = Bot::forAdmin($user['id']);
-        $botId = $request->int('bot_id') ?: ($bots[0]['id'] ?? 0);
+        $botId = $request->int('bot_id') ?: (int)($bots[0]['id'] ?? 0);
         $parents = $botId ? Category::forBot($botId) : [];
 
         $this->render('admin/categories/create', [

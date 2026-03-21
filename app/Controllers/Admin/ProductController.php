@@ -16,7 +16,7 @@ class ProductController extends BaseController
     {
         $user  = $this->authUser();
         $bots  = Bot::forAdmin($user['id']);
-        $botId = $request->int('bot_id') ?: ($bots[0]['id'] ?? 0);
+        $botId = $request->int('bot_id') ?: (int)($bots[0]['id'] ?? 0);
         $page  = $this->currentPage();
         $filters = [
             'search'      => $request->string('search'),
@@ -40,7 +40,7 @@ class ProductController extends BaseController
     {
         $user  = $this->authUser();
         $bots  = Bot::forAdmin($user['id']);
-        $botId = $request->int('bot_id') ?: ($bots[0]['id'] ?? 0);
+        $botId = $request->int('bot_id') ?: (int)($bots[0]['id'] ?? 0);
         $categories = $botId ? Category::forBot($botId) : [];
 
         $this->render('admin/products/create', [
