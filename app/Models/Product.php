@@ -16,8 +16,10 @@ class Product extends BaseModel
         return $q->orderBy('sort_order')->orderBy('name')->get();
     }
 
-    public static function findForBot(int $id, int $botId): ?array
+    public static function findForBot($id, $botId): ?array
     {
+        $id = (int) $id;
+        $botId = (int) $botId;
         return static::db()->table(static::$table)
             ->where('id', $id)->where('bot_id', $botId)->first();
     }
