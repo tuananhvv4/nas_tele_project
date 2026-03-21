@@ -30,17 +30,22 @@ class TelegramUser extends BaseModel
             return array_merge($existing, $data);
         }
 
-        $id = $db->table(static::$table)->insert([
+        $db->table(static::$table)->insert([
             'bot_id'      => $botId,
             'telegram_id' => $data['telegram_id'],
             'username'    => $data['username'] ?? null,
             'first_name'  => $data['first_name'] ?? '',
             'last_name'   => $data['last_name'] ?? null,
             'language'    => $data['language'] ?? null,
+            'is_banned'   => 0,
             'created_at'  => date('Y-m-d H:i:s'),
         ]);
 
-        return array_merge(['id' => $id], $data);
+        // Fetch full row so all columns (is_banned etc.) are present
+        return $db->table(static::$table)
+            ->where('bot_id', $botId)
+            ->where('telegram_id', $data['telegram_id'])
+            ->first();
     }
 
     public static function paginateForBot($botId, $perPage, $page): array

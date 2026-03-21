@@ -157,8 +157,8 @@ function handleStart(Api $tg, $chatId, $botId, array $user): void
 
     $tg->sendMessage([
         'chat_id'    => $chatId,
-        'text'       => "*{$shopName}*\n\n{$welcome}\n\nDùng /catalog để xem sản phẩm.",
-        'parse_mode' => 'Markdown',
+        'text'       => '<b>' . htmlspecialchars($shopName, ENT_QUOTES) . "</b>\n\n" . htmlspecialchars($welcome, ENT_QUOTES) . "\n\nDùng /catalog để xem sản phẩm.",
+        'parse_mode' => 'HTML',
     ]);
 }
 
