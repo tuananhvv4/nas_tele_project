@@ -36,7 +36,7 @@ if (!$botId) {
 }
 
 $bot = Bot::find($botId);
-if (!$bot || !$bot['is_active']) {
+if (!$bot || ($bot['status'] ?? '') !== 'active') {
     http_response_code(404);
     exit('Bot not found');
 }
