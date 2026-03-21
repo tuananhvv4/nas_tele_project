@@ -77,7 +77,11 @@ abstract class BaseController
 
     protected function authUser(): ?array
     {
-        return $this->session->getAuth();
+        $user = $this->session->getAuth();
+        if ($user !== null && isset($user['id'])) {
+            $user['id'] = (int)$user['id'];
+        }
+        return $user;
     }
 
     protected function isSuperAdmin(): bool
