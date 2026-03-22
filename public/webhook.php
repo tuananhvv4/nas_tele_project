@@ -131,26 +131,31 @@ try {
     if (isset($update['callback_query'])) {
         $cq       = $update['callback_query'];
         $cbChatId = (int) ($cq['message']['chat']['id'] ?? 0);
+        $cbMsgId  = (int) ($cq['message']['message_id'] ?? 0) ?: null;
         $cbData   = $cq['data'] ?? '';
         try { $telegram->answerCallbackQuery(['callback_query_id' => $cq['id']]); } catch (\Throwable) {}
 
         wlog('info', 'Callback query', ['data' => $cbData, 'chat_id' => $cbChatId]);
 
         if (str_starts_with($cbData, 'cat_')) {
-            handleCategoryProducts($telegram, $cbChatId, $botId, (int) substr($cbData, 4));
+            handleCategoryProducts($telegram, $cbChatId, $botId, (int) substr($cbData, 4), $cbMsgId);
         } elseif (str_starts_with($cbData, 'prod_')) {
-            handleProductDetail($telegram, $cbChatId, $botId, (int) substr($cbData, 5));
+            handleProductDetail($telegram, $cbChatId, $botId, (int) substr($cbData, 5), $cbMsgId);
         } elseif (str_starts_with($cbData, 'buy_')) {
-            $tg2 = $telegram;
-            try { $tg2->sendMessage(['chat_id' => $cbChatId, 'text' => '🛒 Tính năng mua hàng sẽ sớm ra mắt!']); } catch (\Throwable) {}
+            tgSend($telegram, $cbChatId, $cbMsgId, [
+                'text'         => '🛒 Tính năng mua hàng sẽ sớm ra mắt!',
+                'reply_markup' => json_encode(['inline_keyboard' => [[['text' => '⬅️ Quay lại', 'callback_data' => 'menu_catalog']]]]),
+            ]);
         } elseif ($cbData === 'menu_catalog' || $cbData === 'menu_refresh') {
-            handleCatalog($telegram, $cbChatId, $botId);
+            handleCatalog($telegram, $cbChatId, $botId, $cbMsgId);
         } elseif ($cbData === 'menu_orders') {
-            handleOrders($telegram, $cbChatId, $botId, $tgUser);
+            handleOrders($telegram, $cbChatId, $botId, $tgUser, $cbMsgId);
         } elseif ($cbData === 'menu_help') {
-            handleHelp($telegram, $cbChatId, $botId);
+            handleHelp($telegram, $cbChatId, $botId, $cbMsgId);
         } elseif ($cbData === 'menu_search') {
-            handleSearch($telegram, $cbChatId, $botId);
+            handleSearch($telegram, $cbChatId, $botId, $cbMsgId);
+        } elseif ($cbData === 'menu_start') {
+            handleStart($telegram, $cbChatId, $botId, $tgUser, $cbMsgId);
         }
         exit;
     }
@@ -180,6 +185,26 @@ try {
 }
 
 // ── Command handlers ──────────────────────────────────────────────────────────
+
+/**
+ * Edit existing message if msgId given, otherwise send new message.
+ * Falls back to sendMessage if edit fails (e.g. message too old).
+ */
+function tgSend(Api $tg, int $chatId, ?int $msgId, array $params): void
+{
+    if ($msgId) {
+        try {
+            $tg->editMessageText(array_merge($params, [
+                'chat_id'    => $chatId,
+                'message_id' => $msgId,
+            ]));
+            return;
+        } catch (\Throwable) {
+            // fall through to sendMessage
+        }
+    }
+    $tg->sendMessage(array_merge($params, ['chat_id' => $chatId]));
+}
 
 // function mainKeyboard(): array
 // {
@@ -213,7 +238,7 @@ function mainKeyboard(): array
     ];
 }
 
-function handleStart(Api $tg, $chatId, $botId, array $user): void
+function handleStart(Api $tg, $chatId, $botId, array $user, ?int $msgId = null): void
 {
     $chatId = (int) $chatId;
     $botId  = (int) $botId;
@@ -230,8 +255,7 @@ function handleStart(Api $tg, $chatId, $botId, array $user): void
               . htmlspecialchars((string)$welcome, ENT_QUOTES | ENT_HTML5, 'UTF-8')
               . "\n\nChọn chức năng bên dưới 👇";
 
-        $tg->sendMessage([
-            'chat_id'      => $chatId,
+        tgSend($tg, $chatId, $msgId, [
             'text'         => $text,
             'parse_mode'   => 'HTML',
             'reply_markup' => json_encode(mainKeyboard()),
@@ -245,8 +269,7 @@ function handleStart(Api $tg, $chatId, $botId, array $user): void
             'trace' => mb_substr($e->getTraceAsString(), 0, 600),
         ]);
         try {
-            $tg->sendMessage([
-                'chat_id'      => $chatId,
+            tgSend($tg, $chatId, $msgId, [
                 'text'         => "Chào mừng bạn! 🛍️\n\nChọn chức năng bên dưới 👇",
                 'reply_markup' => json_encode(mainKeyboard()),
             ]);
@@ -254,14 +277,14 @@ function handleStart(Api $tg, $chatId, $botId, array $user): void
     }
 }
 
-function handleCatalog(Api $tg, $chatId, $botId): void
+function handleCatalog(Api $tg, $chatId, $botId, ?int $msgId = null): void
 {
     $chatId = (int) $chatId;
     $botId  = (int) $botId;
     $categories = \App\Models\Category::forBot($botId, onlyActive: true);
 
     if (empty($categories)) {
-        $tg->sendMessage(['chat_id' => $chatId, 'text' => 'Chưa có danh mục nào.']);
+        tgSend($tg, $chatId, $msgId, ['text' => 'Chưa có danh mục nào.']);
         return;
     }
 
@@ -269,16 +292,16 @@ function handleCatalog(Api $tg, $chatId, $botId): void
         fn($cat) => [['text' => $cat['name'], 'callback_data' => 'cat_' . $cat['id']]],
         $categories
     );
+    $keyboard[] = [['text' => '🏠 Menu chính', 'callback_data' => 'menu_start']];
 
-    $tg->sendMessage([
-        'chat_id'      => $chatId,
+    tgSend($tg, $chatId, $msgId, [
         'text'         => "📋 *Danh mục sản phẩm*\n\nVui lòng chọn danh mục:",
         'parse_mode'   => 'Markdown',
         'reply_markup' => json_encode(['inline_keyboard' => $keyboard]),
     ]);
 }
 
-function handleCategoryProducts(Api $tg, $chatId, $botId, int $catId): void
+function handleCategoryProducts(Api $tg, $chatId, $botId, int $catId, ?int $msgId = null): void
 {
     $chatId = (int) $chatId;
     $botId  = (int) $botId;
@@ -288,8 +311,7 @@ function handleCategoryProducts(Api $tg, $chatId, $botId, int $catId): void
     $backBtn = [['text' => '⬅️ Quay lại danh mục', 'callback_data' => 'menu_catalog']];
 
     if (empty($products)) {
-        $tg->sendMessage([
-            'chat_id'      => $chatId,
+        tgSend($tg, $chatId, $msgId, [
             'text'         => 'Danh mục này chưa có sản phẩm nào.',
             'reply_markup' => json_encode(['inline_keyboard' => [$backBtn]]),
         ]);
@@ -305,22 +327,21 @@ function handleCategoryProducts(Api $tg, $chatId, $botId, int $catId): void
     }
     $keyboard[] = $backBtn;
 
-    $tg->sendMessage([
-        'chat_id'      => $chatId,
+    tgSend($tg, $chatId, $msgId, [
         'text'         => "🛍️ *Chọn sản phẩm bạn muốn mua:*\n\n💡 _Bấm \"Làm mới / check slot\" để cập nhật số lượng mới nhất_",
         'parse_mode'   => 'Markdown',
         'reply_markup' => json_encode(['inline_keyboard' => $keyboard]),
     ]);
 }
 
-function handleProductDetail(Api $tg, $chatId, $botId, int $prodId): void
+function handleProductDetail(Api $tg, $chatId, $botId, int $prodId, ?int $msgId = null): void
 {
     $chatId = (int) $chatId;
     $botId  = (int) $botId;
 
     $product = \App\Models\Product::findForBot($prodId, $botId);
     if (!$product) {
-        $tg->sendMessage(['chat_id' => $chatId, 'text' => 'Sản phẩm không tồn tại.']);
+        tgSend($tg, $chatId, $msgId, ['text' => 'Sản phẩm không tồn tại.']);
         return;
     }
 
@@ -341,34 +362,33 @@ function handleProductDetail(Api $tg, $chatId, $botId, int $prodId): void
         : [['text' => '❌ Hết hàng', 'callback_data' => 'noop']];
     $keyboard[] = [['text' => '⬅️ Quay lại', 'callback_data' => 'cat_' . $catId]];
 
-    $tg->sendMessage([
-        'chat_id'      => $chatId,
+    tgSend($tg, $chatId, $msgId, [
         'text'         => $text,
         'parse_mode'   => 'HTML',
         'reply_markup' => json_encode(['inline_keyboard' => $keyboard]),
     ]);
 }
 
-function handleSearch(Api $tg, $chatId, $botId): void
+function handleSearch(Api $tg, $chatId, $botId, ?int $msgId = null): void
 {
     $chatId = (int) $chatId;
-    $tg->sendMessage([
-        'chat_id' => $chatId,
-        'text'    => '🔍 Tính năng tra cứu sẽ sớm ra mắt!',
+    tgSend($tg, $chatId, $msgId, [
+        'text'         => '🔍 Tính năng tra cứu sẽ sớm ra mắt!',
+        'reply_markup' => json_encode(['inline_keyboard' => [[['text' => '🏠 Menu chính', 'callback_data' => 'menu_start']]]]),
     ]);
 }
 
-function handleOrders(Api $tg, $chatId, $botId, array $user): void
+function handleOrders(Api $tg, $chatId, $botId, array $user, ?int $msgId = null): void
 {
     $chatId = (int) $chatId;
     $botId  = (int) $botId;
-    $tg->sendMessage([
-        'chat_id' => $chatId,
-        'text'    => '📦 Tính năng xem đơn hàng sẽ sớm ra mắt!',
+    tgSend($tg, $chatId, $msgId, [
+        'text'         => '📦 Tính năng xem đơn hàng sẽ sớm ra mắt!',
+        'reply_markup' => json_encode(['inline_keyboard' => [[['text' => '🏠 Menu chính', 'callback_data' => 'menu_start']]]]),
     ]);
 }
 
-function handleHelp(Api $tg, $chatId, $botId): void
+function handleHelp(Api $tg, $chatId, $botId, ?int $msgId = null): void
 {
     $chatId  = (int) $chatId;
     $botId   = (int) $botId;
@@ -376,7 +396,11 @@ function handleHelp(Api $tg, $chatId, $botId): void
     $text    = "ℹ️ *Hướng dẫn sử dụng*\n\n/start - Trang chủ\n/catalog - Xem sản phẩm\n/order - Xem đơn hàng\n/help - Trợ giúp";
     if ($support) $text .= "\n\n📞 Hỗ trợ: {$support}";
 
-    $tg->sendMessage(['chat_id' => $chatId, 'text' => $text, 'parse_mode' => 'Markdown']);
+    tgSend($tg, $chatId, $msgId, [
+        'text'         => $text,
+        'parse_mode'   => 'Markdown',
+        'reply_markup' => json_encode(['inline_keyboard' => [[['text' => '🏠 Menu chính', 'callback_data' => 'menu_start']]]]),
+    ]);
 }
 
 function handleDefault(Api $tg, $chatId, $botId, string $text, array $user): void
