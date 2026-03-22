@@ -143,12 +143,14 @@ try {
         } elseif (str_starts_with($cbData, 'buy_')) {
             $tg2 = $telegram;
             try { $tg2->sendMessage(['chat_id' => $cbChatId, 'text' => '🛒 Tính năng mua hàng sẽ sớm ra mắt!']); } catch (\Throwable) {}
-        } elseif ($cbData === 'menu_catalog') {
+        } elseif ($cbData === 'menu_catalog' || $cbData === 'menu_refresh') {
             handleCatalog($telegram, $cbChatId, $botId);
         } elseif ($cbData === 'menu_orders') {
             handleOrders($telegram, $cbChatId, $botId, $tgUser);
         } elseif ($cbData === 'menu_help') {
             handleHelp($telegram, $cbChatId, $botId);
+        } elseif ($cbData === 'menu_search') {
+            handleSearch($telegram, $cbChatId, $botId);
         }
         exit;
     }
@@ -179,16 +181,35 @@ try {
 
 // ── Command handlers ──────────────────────────────────────────────────────────
 
+// function mainKeyboard(): array
+// {
+//     return [
+//         'keyboard' => [
+//             [['text' => '📋 Xem sản phẩm'],     ['text' => '📦 Đơn hàng của tôi']],
+//             [['text' => '🔄 Làm mới / check slot'], ['text' => '🔍 Tra cứu']],
+//             [['text' => '❓ Hướng dẫn']],
+//         ],
+//         'resize_keyboard'   => true,
+//         'persistent'        => true,
+//     ];
+// }
+
 function mainKeyboard(): array
 {
     return [
-        'keyboard' => [
-            [['text' => '📋 Xem sản phẩm'],     ['text' => '📦 Đơn hàng của tôi']],
-            [['text' => '🔄 Làm mới / check slot'], ['text' => '🔍 Tra cứu']],
-            [['text' => '❓ Hướng dẫn']],
+        'inline_keyboard' => [
+            [
+                ['text' => '📋 Xem sản phẩm',         'callback_data' => 'menu_catalog'],
+                ['text' => '📦 Đơn hàng của tôi',     'callback_data' => 'menu_orders'],
+            ],
+            [
+                ['text' => '🔄 Làm mới / check slot', 'callback_data' => 'menu_refresh'],
+                ['text' => '🔍 Tra cứu',               'callback_data' => 'menu_search'],
+            ],
+            [
+                ['text' => '❓ Hướng dẫn',             'callback_data' => 'menu_help'],
+            ],
         ],
-        'resize_keyboard'   => true,
-        'persistent'        => true,
     ];
 }
 
