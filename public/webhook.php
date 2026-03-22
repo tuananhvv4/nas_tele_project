@@ -292,6 +292,7 @@ function handleCatalog(Api $tg, $chatId, $botId, ?int $msgId = null): void
         fn($cat) => [['text' => $cat['name'], 'callback_data' => 'cat_' . $cat['id']]],
         $categories
     );
+    $keyboard[] = [['text' => '🔄 Làm mới / check slot', 'callback_data' => 'menu_refresh']];
     $keyboard[] = [['text' => '🏠 Menu chính', 'callback_data' => 'menu_start']];
 
     tgSend($tg, $chatId, $msgId, [
