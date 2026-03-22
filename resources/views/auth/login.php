@@ -10,7 +10,7 @@
             id="username"
             name="username"
             class="form-input"
-            placeholder="superadmin"
+            placeholder="Nhập tài khoản"
             value="<?= \Core\View::old('username') ?>"
             required
             autocomplete="username"
@@ -26,7 +26,7 @@
                 id="password"
                 name="password"
                 class="form-input pr-10"
-                placeholder="••••••••"
+                placeholder="Nhập mật khẩu"
                 required
                 autocomplete="current-password"
             >

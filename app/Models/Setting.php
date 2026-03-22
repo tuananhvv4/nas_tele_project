@@ -41,15 +41,14 @@ class Setting extends BaseModel
         if ($existing) {
             static::db()->table('settings')
                 ->where('id', $existing['id'])
-                ->update(['value' => $strValue, 'updated_at' => date('Y-m-d H:i:s')]);
+                ->update(['value' => $strValue]);
         } else {
             static::db()->table('settings')->insert([
-                'bot_id'     => $botId,
-                'key'        => $key,
-                'value'      => $strValue,
-                'type'       => $type,
-                'label'      => $label,
-                'created_at' => date('Y-m-d H:i:s'),
+                'bot_id' => $botId,
+                'key'    => $key,
+                'value'  => $strValue,
+                'type'   => $type,
+                'label'  => $label,
             ]);
         }
     }
