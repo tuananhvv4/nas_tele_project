@@ -148,11 +148,11 @@ try {
             handleProductDetail($telegram, $cbChatId, $botId, $productId, $cbMsgId);
             // Xử lý khi chọn sản phẩm để mua (Sẽ yêu cầu nhập số lượng) sau đó sẽ set state là select_qty
         } elseif (str_starts_with($cbData, 'select_qty_')) {
-            $productId = (int) substr($cbData, 8);
+            $productId = (int) substr($cbData, 11);
             handleSelectProductToBuy($telegram, $cbChatId, $botId, $productId, $cbMsgId);
         // Xử lý sau khi nhập số lượng
         } elseif (str_starts_with($cbData, 'buy_qty_')) {
-            $productId = (int) substr($cbData, 4);
+            $productId = (int) substr($cbData, 8);
             tgSend($telegram, $cbChatId, $cbMsgId, [
                 'text'         => '🛒 Tính năng mua hàng sẽ sớm ra mắt!',
                 'reply_markup' => json_encode(['inline_keyboard' => [[['text' => '⬅️ Quay lại', 'callback_data' => 'menu_catalog']]]]),
@@ -382,7 +382,7 @@ function handleCategoryProducts(Api $tg, $chatId, $botId, int $catId, ?int $msgI
 }
 
 /**
- * Xử lý khi chọn sản phẩm
+ * Xử lý khi chọn xem chi tiết sản phẩm
  */
 function handleProductDetail(Api $tg, $chatId, $botId, int $prodId, ?int $msgId = null): void
 {
