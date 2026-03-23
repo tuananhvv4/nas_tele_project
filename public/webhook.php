@@ -38,11 +38,11 @@ function wlog(string $level, string $message, array $context = []): void
     file_put_contents($logFile, $line, FILE_APPEND | LOCK_EX);
 }
 
-// Bootstrap env + DB only (no session / router needed)
+// Khởi tạo env + DB (không cần session / router)
 $app = Application::getInstance(BASE_PATH);
 $app->bootstrapLite();
 
-// ── Validate webhook secret ───────────────────────────────────────────────────
+// ── Kiểm tra secret webhook ───────────────────────────────────────────────────
 $botId         = (int)($_GET['bot_id'] ?? 0);
 $webhookToken  = $_GET['token'] ?? '';
 
@@ -81,23 +81,23 @@ wlog('info', 'Raw input', ['body' => mb_substr($input, 0, 500)]);
 
 if (!$update) {
     wlog('warn', 'Empty or invalid JSON body');
-    http_response_code(200); // Always return 200 to Telegram
+    http_response_code(200); // Trả về 200 cho Telegram
     exit;
 }
 
-// Respond immediately so Telegram doesn't retry
+// Trả về ngay lập tức để Telegram không thử lại
 http_response_code(200);
 header('Content-Type: application/json');
 echo json_encode(['ok' => true]);
 
-// Flush output
+// Gửi output
 if (function_exists('fastcgi_finish_request')) {
     fastcgi_finish_request();
 } else {
     ob_end_flush();
 }
 
-// ── Process update ────────────────────────────────────────────────────────────
+// ── Xử lý update ────────────────────────────────────────────────────────────
 try {
     $telegram = new Api($bot['bot_token']);
     $message  = $update['message'] ?? $update['callback_query']['message'] ?? null;
@@ -113,7 +113,7 @@ try {
         exit;
     }
 
-    // Register or update user
+    // Đăng ký hoặc cập nhật người dùng
     $tgUser = TelegramUser::findOrCreate($botId, [
         'telegram_id' => $from['id'],
         'username'    => $from['username'] ?? null,
@@ -122,12 +122,13 @@ try {
         'language'    => $from['language_code'] ?? null,
     ]);
 
+    // Kiểm tra xem người dùng có bị chặn không
     if ($tgUser['is_banned']) {
         wlog('info', 'Banned user ignored', ['telegram_id' => $from['id']]);
         exit;
     }
 
-    // Handle inline button taps (callback_query)
+    // Xử lý các nút bấm inline (callback_query)
     if (isset($update['callback_query'])) {
         $cq       = $update['callback_query'];
         $cbChatId = (int) ($cq['message']['chat']['id'] ?? 0);
@@ -137,23 +138,45 @@ try {
 
         wlog('info', 'Callback query', ['data' => $cbData, 'chat_id' => $cbChatId]);
 
+        // Xử lý khi chọn category
         if (str_starts_with($cbData, 'cat_')) {
-            handleCategoryProducts($telegram, $cbChatId, $botId, (int) substr($cbData, 4), $cbMsgId);
+            $categoryId = (int) substr($cbData, 4);
+            handleCategoryProducts($telegram, $cbChatId, $botId, $categoryId, $cbMsgId);
+        // Xử lý khi chọn product
         } elseif (str_starts_with($cbData, 'prod_')) {
-            handleProductDetail($telegram, $cbChatId, $botId, (int) substr($cbData, 5), $cbMsgId);
-        } elseif (str_starts_with($cbData, 'buy_')) {
+            $productId = (int) substr($cbData, 5);
+            handleProductDetail($telegram, $cbChatId, $botId, $productId, $cbMsgId);
+            // Xử lý khi chọn sản phẩm để mua (Sẽ yêu cầu nhập số lượng) sau đó sẽ set state là select_qty
+        } elseif (str_starts_with($cbData, 'select_qty_')) {
+            $productId = (int) substr($cbData, 8);
+            handleSelectProductToBuy($telegram, $cbChatId, $botId, $productId, $cbMsgId);
+        // Xử lý sau khi nhập số lượng
+        } elseif (str_starts_with($cbData, 'buy_qty_')) {
+            $productId = (int) substr($cbData, 4);
             tgSend($telegram, $cbChatId, $cbMsgId, [
                 'text'         => '🛒 Tính năng mua hàng sẽ sớm ra mắt!',
                 'reply_markup' => json_encode(['inline_keyboard' => [[['text' => '⬅️ Quay lại', 'callback_data' => 'menu_catalog']]]]),
             ]);
+        // Xử lý nếu bấm huỷ nhập số lượng
+        if (str_starts_with($cbData, 'cancel_buy_')) {
+            $productId = (int) substr($cbData, 11);
+            // Làm mới state
+            \App\Models\UserState::setUserState($botId, $tgUser['id'], '');
+            handleProductDetail($telegram, $cbChatId, $botId, $productId, $cbMsgId);
+        }
+        // Xử lý khi chọn menu catalog
         } elseif ($cbData === 'menu_catalog' || $cbData === 'menu_refresh') {
             handleCatalog($telegram, $cbChatId, $botId, $cbMsgId);
+        // Xử lý khi chọn menu orders
         } elseif ($cbData === 'menu_orders') {
             handleOrders($telegram, $cbChatId, $botId, $tgUser, $cbMsgId);
+        // Xử lý khi chọn menu help
         } elseif ($cbData === 'menu_help') {
             handleHelp($telegram, $cbChatId, $botId, $cbMsgId);
+        // Xử lý khi chọn menu search
         } elseif ($cbData === 'menu_search') {
             handleSearch($telegram, $cbChatId, $botId, $cbMsgId);
+        // Xử lý khi chọn menu start
         } elseif ($cbData === 'menu_start') {
             handleStart($telegram, $cbChatId, $botId, $tgUser, $cbMsgId);
         }
@@ -165,7 +188,17 @@ try {
 
     wlog('info', 'Processing message', ['chat_id' => $chatId, 'text' => $text]);
 
-    // Route commands and persistent keyboard buttons
+    // Xử lý khi user có state
+    $userState = \App\Models\UserState::getUserState($botId, $tgUser['id']);
+    if (!empty($userState)) {
+        switch ($userState) {
+            case 'select_qty':
+                handleSelectQty($telegram, $chatId, $botId, $productId, $cbMsgId);
+                break;
+        }
+    }
+
+    // Định tuyến các lệnh và các nút bấm persistent
     match (true) {
         str_starts_with($text, '/start')        => handleStart($telegram, $chatId, $botId, $tgUser),
         str_starts_with($text, '/catalog')      => handleCatalog($telegram, $chatId, $botId),
@@ -187,8 +220,8 @@ try {
 // ── Command handlers ──────────────────────────────────────────────────────────
 
 /**
- * Edit existing message if msgId given, otherwise send new message.
- * Falls back to sendMessage if edit fails (e.g. message too old).
+ * Chỉnh sửa tin nhắn hiện có nếu msgId được cung cấp, nếu không thì gửi tin nhắn mới.
+ * Nếu chỉnh sửa thất bại thì sẽ gửi tin nhắn mới (ví dụ: tin nhắn quá cũ).
  */
 function tgSend(Api $tg, int $chatId, ?int $msgId, array $params): void
 {
@@ -200,7 +233,7 @@ function tgSend(Api $tg, int $chatId, ?int $msgId, array $params): void
             ]));
             return;
         } catch (\Throwable) {
-            // fall through to sendMessage
+            // chuyển sang gửi tin nhắn mới
         }
     }
     $tg->sendMessage(array_merge($params, ['chat_id' => $chatId]));
@@ -219,6 +252,10 @@ function tgSend(Api $tg, int $chatId, ?int $msgId, array $params): void
 //     ];
 // }
 
+
+/**
+ * Trả về bàn phím chính
+ */
 function mainKeyboard(): array
 {
     return [
@@ -277,6 +314,9 @@ function handleStart(Api $tg, $chatId, $botId, array $user, ?int $msgId = null):
     }
 }
 
+/**
+ * Xử lý khi chọn menu catalog
+ */
 function handleCatalog(Api $tg, $chatId, $botId, ?int $msgId = null): void
 {
     $chatId = (int) $chatId;
@@ -292,19 +332,22 @@ function handleCatalog(Api $tg, $chatId, $botId, ?int $msgId = null): void
         fn($cat) => [['text' => $cat['name'], 'callback_data' => 'cat_' . $cat['id']]],
         $categories
     );
-    // $keyboard[] = [['text' => '🔄 Làm mới / check slot', 'callback_data' => 'menu_catalog']];
+
     $keyboard[] = [
-        ['text' => '🔄 Làm mới / check slot', 'callback_data' => 'menu_catalog'],
+        ['text' => '🔄 Làm mới', 'callback_data' => 'menu_refresh'],
         ['text' => '🏠 Menu chính', 'callback_data' => 'menu_start']
     ];
 
     tgSend($tg, $chatId, $msgId, [
-        'text'         => "📋 *Danh mục sản phẩm*\n\nVui lòng chọn danh mục:",
+        'text'         => "📋 *Chọn sản phẩm bạn muốn mua bên dưới:*",
         'parse_mode'   => 'Markdown',
         'reply_markup' => json_encode(['inline_keyboard' => $keyboard]),
     ]);
 }
 
+/**
+ * Xử lý khi chọn danh mục sản phẩm
+ */
 function handleCategoryProducts(Api $tg, $chatId, $botId, int $catId, ?int $msgId = null): void
 {
     $chatId = (int) $chatId;
@@ -316,7 +359,7 @@ function handleCategoryProducts(Api $tg, $chatId, $botId, int $catId, ?int $msgI
 
     if (empty($products)) {
         tgSend($tg, $chatId, $msgId, [
-            'text'         => 'Danh mục này chưa có sản phẩm nào.',
+            'text'         => '❌ Danh mục này chưa có sản phẩm nào.',
             'reply_markup' => json_encode(['inline_keyboard' => [$backBtn]]),
         ]);
         return;
@@ -332,12 +375,15 @@ function handleCategoryProducts(Api $tg, $chatId, $botId, int $catId, ?int $msgI
     $keyboard[] = $backBtn;
 
     tgSend($tg, $chatId, $msgId, [
-        'text'         => "🛍️ *Chọn sản phẩm bạn muốn mua:*\n\n💡 _Bấm \"Làm mới / check slot\" để cập nhật số lượng mới nhất_",
+        'text'         => "🛍️ *Chọn sản phẩm bạn muốn mua bên dưới:*",
         'parse_mode'   => 'Markdown',
         'reply_markup' => json_encode(['inline_keyboard' => $keyboard]),
     ]);
 }
 
+/**
+ * Xử lý khi chọn sản phẩm
+ */
 function handleProductDetail(Api $tg, $chatId, $botId, int $prodId, ?int $msgId = null): void
 {
     $chatId = (int) $chatId;
@@ -345,7 +391,71 @@ function handleProductDetail(Api $tg, $chatId, $botId, int $prodId, ?int $msgId 
 
     $product = \App\Models\Product::findForBot($prodId, $botId);
     if (!$product) {
-        tgSend($tg, $chatId, $msgId, ['text' => 'Sản phẩm không tồn tại.']);
+        tgSend($tg, $chatId, $msgId, ['text' => '❌ Sản phẩm không tồn tại.']);
+        return;
+    }
+
+    $stock = \App\Models\ProductAccount::countByStatus($prodId)['available'] ?? 0;
+    $price = number_format((int)$product['price'], 0, '.', ',');
+
+    $text = '<b>' . htmlspecialchars((string)$product['name'], ENT_QUOTES | ENT_HTML5, 'UTF-8') . "</b>\n\n";
+    if (!empty($product['description'])) {
+        $text .= "\n\n <b>📋 Mô tả:</b>\n";
+        $desc = (string)$product['description'];
+
+        // Tách theo xuống dòng
+        $lines = preg_split('/\r\n|\r|\n/', $desc);
+
+        // Thêm dấu • vào đầu mỗi dòng
+        $lines = array_map(function ($line) {
+            return trim($line) !== '' ? '• ' . $line : $line;
+        }, $lines);
+
+        // Nối lại thành chuỗi (dùng <br> nếu hiển thị HTML)
+        $descFormatted = implode("\n", $lines);
+
+        // Escape HTML
+        $text .= htmlspecialchars($descFormatted, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    }
+
+    $text .= "\n\n💰 Giá: <b>{$price}đ</b> / 1\n"
+        . "📦 Còn lại: <b>{$stock}</b>";
+
+    $catId = (int)($product['category_id'] ?? 0);
+    $keyboard = [];
+    $keyboard[] = $stock > 0
+        ? [['text' => '💳 Mua ngay', 'callback_data' => 'select_qty_' . $prodId]]
+        : [['text' => '❌ Hết hàng', 'callback_data' => 'noop']];
+    $keyboard[] = [['text' => '⬅️ Quay lại', 'callback_data' => 'cat_' . $catId]];
+
+    tgSend($tg, $chatId, $msgId, [
+        'text'         => $text,
+        'parse_mode'   => 'HTML',
+        'reply_markup' => json_encode(['inline_keyboard' => $keyboard]),
+    ]);
+}
+
+/**
+ * Xử lý khi chọn sản phẩm để mua (Yêu cầu nhập số lượng)
+ */
+
+ function handleSelectProductToBuy(Api $tg, $chatId, $botId, int $prodId, ?int $msgId = null): void
+ {
+    global $tgUser;
+    $chatId = (int) $chatId;
+    $botId  = (int) $botId;
+    $product = \App\Models\Product::findForBot($prodId, $botId);
+    if (!$product) {
+        tgSend($tg, $chatId, $msgId, ['text' => '❌ Sản phẩm không tồn tại.']);
+        return;
+    }
+
+    // set user state to select_qty
+    if (!empty($tgUser) && !empty($tgUser['id'])) {
+        \App\Models\UserState::setUserState($botId, $tgUser['id'], 'select_qty');
+    } else {
+        wlog('error', 'handleSelectProductToBuy failed: user not found', ['chat_id' => $chatId, 'bot_id' => $botId]);
+        tgSend($tg, $chatId, $msgId, ['text' => '❌ Lỗi khi xử lý yêu cầu. Vui lòng thử lại sau.']);
         return;
     }
 
@@ -354,22 +464,35 @@ function handleProductDetail(Api $tg, $chatId, $botId, int $prodId, ?int $msgId 
 
     $text = '<b>' . htmlspecialchars((string)$product['name'], ENT_QUOTES | ENT_HTML5, 'UTF-8') . "</b>\n\n"
           . "💰 Giá: <b>{$price}đ</b>\n"
-          . "📦 Còn lại: <b>{$stock} slot</b>";
-    if (!empty($product['description'])) {
-        $text .= "\n\n" . htmlspecialchars((string)$product['description'], ENT_QUOTES | ENT_HTML5, 'UTF-8');
-    }
+          . "📦 Còn lại: <b>{$stock} slot</b>\n\n"
+          . "📝 *Vui lòng nhập số lượng bạn muốn mua: (1-{$stock})*";
 
-    $catId = (int)($product['category_id'] ?? 0);
-    $keyboard = [];
-    $keyboard[] = $stock > 0
-        ? [['text' => '💳 Mua ngay', 'callback_data' => 'buy_' . $prodId]]
-        : [['text' => '❌ Hết hàng', 'callback_data' => 'noop']];
-    $keyboard[] = [['text' => '⬅️ Quay lại', 'callback_data' => 'cat_' . $catId]];
 
     tgSend($tg, $chatId, $msgId, [
         'text'         => $text,
         'parse_mode'   => 'HTML',
-        'reply_markup' => json_encode(['inline_keyboard' => $keyboard]),
+        'reply_markup' => json_encode(['inline_keyboard' => [[['text' => '❌ Huỷ', 'callback_data' => 'cancel_buy_' . $prodId]]]]),
+    ]);
+    
+}
+
+/**
+ * Xử lý khi user nhập số lượng
+ */
+function handleSelectQty(Api $tg, $chatId, $botId, int $prodId, ?int $msgId = null): void
+{
+    $chatId = (int) $chatId;
+    $botId  = (int) $botId;
+    $product = \App\Models\Product::findForBot($prodId, $botId);
+    if (!$product) {
+        tgSend($tg, $chatId, $msgId, ['text' => '❌ Sản phẩm không tồn tại.']);
+        return;
+    }
+
+    tgSend($tg, $chatId, $msgId, [
+        'text'         => 'Tính năng mua hàng sẽ sớm ra mắt!',
+        'parse_mode'   => 'HTML',
+        'reply_markup' => json_encode(['inline_keyboard' => [[['text' => '🏠 Menu chính', 'callback_data' => 'menu_start']]]]),
     ]);
 }
 
