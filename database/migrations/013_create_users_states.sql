@@ -3,6 +3,7 @@ CREATE TABLE IF NOT EXISTS `users_states` (
     `bot_id`     INT UNSIGNED NOT NULL,
     `user_id`    INT UNSIGNED NOT NULL,
     `state`      VARCHAR(255) NOT NULL,
+    `data`       JSON         NULL,
     `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `updated_at` DATETIME NULL ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`),

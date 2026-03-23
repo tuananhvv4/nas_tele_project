@@ -190,6 +190,7 @@ try {
 
     // Xử lý khi user có state
     $userState = \App\Models\UserState::getUserState($botId, $tgUser['id']);
+    wlog('info', 'User state', ['user_state' => $userState ?? 'null']);
     if (!empty($userState)) {
         switch ($userState) {
             case 'select_qty':
