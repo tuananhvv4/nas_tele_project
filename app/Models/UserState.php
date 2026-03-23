@@ -18,7 +18,7 @@ class UserState extends BaseModel
         return $row['state'];
     }
 
-    public static function setUserState($botId, $userId, string $newState): void
+    public static function setUserState($botId, $userId, string $newState, array $data = []): void
     {
         $botId = (int) $botId;
         $userId = (int) $userId;
@@ -34,6 +34,7 @@ class UserState extends BaseModel
                 'bot_id' => $botId,
                 'user_id' => $userId,
                 'state' => $newState,
+                'data' => $data ? json_encode($data) : null,
                 'created_at' => date('Y-m-d H:i:s'),
                 'updated_at' => date('Y-m-d H:i:s'),
             ]);

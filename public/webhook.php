@@ -122,6 +122,8 @@ try {
         'language'    => $from['language_code'] ?? null,
     ]);
 
+    wlog('info', 'Telegram user: ' . json_encode($tgUser, JSON_UNESCAPED_UNICODE));
+
     // Kiểm tra xem người dùng có bị chặn không
     if ($tgUser['is_banned']) {
         wlog('info', 'Banned user ignored', ['telegram_id' => $from['id']]);
