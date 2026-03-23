@@ -12,28 +12,32 @@ class UserState extends BaseModel
     {
         $botId = (int) $botId;
         $userId = (int) $userId;
-        $row = static::db()->table('users_states')
+        $row = static::db()->table(static::$table)
             ->where('bot_id', $botId)->where('user_id', $userId)->first();
         if (!$row) return [];
         return $row;
     }
 
-    public static function setUserState($botId, $userId, string $newState, array $data = []): void
+    public static function setUserState($botId, $userId, string $state, array $data = []): void
     {
         $botId = (int) $botId;
         $userId = (int) $userId;
-        $existing = static::db()->table('users_states')
+        $existing = static::db()->table(static::$table)
             ->where('bot_id', $botId)->where('user_id', $userId)->first();
 
         if ($existing) {
-            static::db()->table('users_states')
+            static::db()->table(static::$table)
                 ->where('id', $existing['id'])
-                ->update(['state' => $newState, 'updated_at' => date('Y-m-d H:i:s')]);
+                ->update([
+                    'state' => $state, 
+                    'data' => $data ? json_encode($data) : null, 
+                    'updated_at' => date('Y-m-d H:i:s'),
+                ]);
         } else {
-            static::db()->table('users_states')->insert([
+            static::db()->table(static::$table)->insert([
                 'bot_id' => $botId,
                 'user_id' => $userId,
-                'state' => $newState,
+                'state' => $state,
                 'data' => $data ? json_encode($data) : null,
                 'created_at' => date('Y-m-d H:i:s'),
                 'updated_at' => date('Y-m-d H:i:s'),

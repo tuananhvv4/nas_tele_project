@@ -106,13 +106,18 @@ try {
         wlog('info', 'Update has no message', ['update_keys' => array_keys($update)]);
         exit;
     }
-
-    $from = $message['from'] ?? ($update['callback_query']['from'] ?? null);
+    
+    if (isset($update['callback_query'])) {
+        $from = $update['callback_query']['from'];
+    } else {
+        $from = $message['from'] ?? null;
+    }
+    
     if (!$from) {
         wlog('warn', 'Message has no from field');
         exit;
     }
-
+    
     // Đăng ký hoặc cập nhật người dùng
     $tgUser = TelegramUser::findOrCreate($botId, [
         'telegram_id' => $from['id'],
@@ -196,7 +201,7 @@ try {
     if (!empty($userState)) {
         switch ($userState['state']) {
             case 'select_qty':
-                handleSelectQty($telegram, $chatId, $botId, $productId, $cbMsgId);
+                handleSelectQty($telegram, $chatId, $botId, $userState, $cbMsgId);
                 break;
         }
     }
@@ -455,7 +460,10 @@ function handleProductDetail(Api $tg, $chatId, $botId, int $prodId, ?int $msgId 
 
     // set user state to select_qty
     if (!empty($tgUser) && !empty($tgUser['id'])) {
-        \App\Models\UserState::setUserState($botId, $tgUser['id'], 'select_qty');
+        $data = [
+            'product_id' => $prodId,
+        ];
+        \App\Models\UserState::setUserState($botId, $tgUser['id'], 'select_qty', $data);
     } else {
         wlog('error', 'handleSelectProductToBuy failed: user not found', ['chat_id' => $chatId, 'bot_id' => $botId]);
         tgSend($tg, $chatId, $msgId, ['text' => '❌ Lỗi khi xử lý yêu cầu. Vui lòng thử lại sau.']);
@@ -480,12 +488,14 @@ function handleProductDetail(Api $tg, $chatId, $botId, int $prodId, ?int $msgId 
 }
 
 /**
- * Xử lý khi user nhập số lượng
+ * Xử lý khi user đã nhập số lượng
  */
-function handleSelectQty(Api $tg, $chatId, $botId, int $prodId, ?int $msgId = null): void
+function handleSelectQty(Api $tg, $chatId, $botId, $userState, ?int $msgId = null): void
 {
     $chatId = (int) $chatId;
     $botId  = (int) $botId;
+    $stateData = isset($userState['data']) ? json_decode($userState['data'], true) : [];
+    $prodId = $stateData['product_id'] ?? 0;
     $product = \App\Models\Product::findForBot($prodId, $botId);
     if (!$product) {
         tgSend($tg, $chatId, $msgId, ['text' => '❌ Sản phẩm không tồn tại.']);
