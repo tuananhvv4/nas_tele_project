@@ -192,9 +192,9 @@ try {
 
     // Xử lý khi user có state
     $userState = \App\Models\UserState::getUserState($botId, $tgUser['id']);
-    wlog('info', 'User state', ['user_state' => $userState ?? 'null']);
+    wlog('info', 'User state', ['user_state' => json_encode($userState, JSON_UNESCAPED_UNICODE) ?? 'null']);
     if (!empty($userState)) {
-        switch ($userState) {
+        switch ($userState['state']) {
             case 'select_qty':
                 handleSelectQty($telegram, $chatId, $botId, $productId, $cbMsgId);
                 break;

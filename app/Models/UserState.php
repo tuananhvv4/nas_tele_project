@@ -8,14 +8,14 @@ class UserState extends BaseModel
 {
     protected static string $table = 'users_states';
 
-    public static function getUserState($botId, $userId): ?string
+    public static function getUserState($botId, $userId): ?array
     {
         $botId = (int) $botId;
         $userId = (int) $userId;
         $row = static::db()->table('users_states')
             ->where('bot_id', $botId)->where('user_id', $userId)->first();
-        if (!$row) return null;
-        return $row['state'];
+        if (!$row) return [];
+        return $row;
     }
 
     public static function setUserState($botId, $userId, string $newState, array $data = []): void
