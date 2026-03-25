@@ -199,12 +199,12 @@ try {
     wlog('info', 'Processing message', ['chat_id' => $chatId, 'text' => $text]);
 
     // Xử lý khi user có state
-    $userState = \App\Models\UserState::getUserState($botId, $tgUser['id']);
+    $userState = UserState::getUserState($botId, $tgUser['id']);
     wlog('info', 'User state', ['user_state' => json_encode($userState, JSON_UNESCAPED_UNICODE) ?? 'null']);
     if (!empty($userState)) {
         switch ($userState['state']) {
             case 'select_qty':
-                handleSelectQty($telegram, $chatId, $botId, $userState, $cbMsgId);
+                handleSelectQty($telegram, $chatId, $botId, $userState, $text, $cbMsgId);
                 exit;
         }
     }
